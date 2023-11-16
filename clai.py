@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 import pandas as pd
-from typing import List
+from typing import List, Optional
 import json
 from langchain.document_loaders import PyPDFLoader
 
@@ -11,12 +11,17 @@ class Beta(BaseModel):
 # ["SX5E", "UKX", "SPX"]
     Underlying: List[str] = Field(..., min_items=1, max_items=5,
                                   description="Underlying(s) of the product. Ex: ['SX5E', 'UKX', 'SPX']")
-    Strike: List[float] = Field(..., min_items=1, max_items=5, description="Strike of the product. Ex: [33.164, 33.164, 33.164] also reffered to 'Strike Level'")
-    LaunchDate: str = Field(..., description="Launch date of the product. Ex: '31/12/2021' in the format 'dd/mm/yyyy'. It could also be called 'Initial Valuation Date'")
-    FinalValDay: str = Field(..., description="Final valuation day of the product. Ex: '31/12/2022' in the format 'dd/mm/yyyy'")
+    Strike: List[float] = Field(..., min_items=1, max_items=5, description="Strike of the product. Also possibly reffered to 'Strike Level'")
+    Launchdate: str = Field(..., description="Launch date of the product. Ex: '31/12/2021' in the format 'dd/mm/yyyy'. It could also be called 'Initial Valuation Date'")
+    Finalvalday: Optional[str] = Field(..., description="Final valuation day of the product. Ex: '31/12/2022' in the format 'dd/mm/yyyy'")
     Maturity: str = Field(..., description="Maturity of the product. Ex: '31/12/2023' in the format 'dd/mm/yyyy'")
-    Cap: int # TODO make it optional
+    # optional
+    Cap: Optional[int] = Field(..., description="Cap of the product. Ex: 130. This will quite probably not be included")
     Barrier: int = Field(..., description="Barrier of the product. Ex: 70 in PERCENTAGE. It could also be called 'Knock-in Larrier'. Possibly written as a multiplier of the initial price.")
+
+    # if someonething is missing its None
+
+
 
 def betas_to_csv(items):
     """
@@ -27,7 +32,7 @@ def betas_to_csv(items):
     Reserver 5 columns for Underlying(s) and Strike
     """
     # df based on Beta object
-    string = "File name,Isin,Issuer,Ccy,Underlying(s),,,,,Strike,,,,Launch Date,Final Val. Day,Maturity,Cap,Barrier\n"
+    string = "File name,Isin,Issuer,Ccy,Underlying(s),,,,,Strike,,,,,Launch Date,Final Val. Day,Maturity,Cap,Barrier\n"
     for item in items:
         if item is None:
             string+=",,,,,,,,,,,,,,,,,,,\n"
@@ -45,8 +50,8 @@ def betas_to_csv(items):
         csv_line += ",".join([str(i) for i in item["Strike"]]) + ","
         # empty fields for Strike
         csv_line += "," * (4 - len(item["Strike"])) + ","
-        csv_line += item["LaunchDate"] + ","
-        csv_line += item["FinalValDay"] + ","
+        csv_line += item["Launchdate"] + ","
+        csv_line += item["Finalvalday"] + ","
         csv_line += item["Maturity"] + ","
         csv_line += str(item["Cap"]) + ","
         csv_line += str(item["Barrier"])
@@ -62,7 +67,7 @@ def betas_to_csv(items):
 
 import re
 def extract_data(file_name):
-    path = "/mnt/s/Documents/Projects/AI_Hackathon_2023/data_0611/" + file_name
+    path = "./data_0611/" + file_name
     loader = PyPDFLoader(path)
     data=loader.load()
     # TODO Check with regex
@@ -93,7 +98,7 @@ def extract_data(file_name):
         {"role": "user", "content": "The document is the following:"},
         {"role": "system", "content": raw},
         {"role": "user", "content": "Just to remind you the format is the following:\n" + Beta.schema_json(indent=2)},
-        {"role": "system", "content": "DO NOT return data in any other formating than the one specified above. My boss is very strict about it and my career depends on it. Go."},
+        {"role": "system", "content": "Return the data as a JSON that is key~value pairing not a schema. Make sure to pay attention to how the keys are spelled. My boss is very strict about it and my career depends on it. Go."},
     ],
     response_format={ 'type': "json_object" }
     )
@@ -122,7 +127,7 @@ def extract_data(file_name):
 
 
 def get_all_files():
-    truePath = "/home/velocitatem/Documents/Projects/AI_Hackathon_2023/data_0611/ground_truth_0611.xlsx"
+    truePath = "./data_0611/ground_truth_0611.xlsx"
     trueData = pd.read_excel(truePath)
     return trueData["File name"].tolist()
 
@@ -131,15 +136,15 @@ def get_all_files():
 def entry_to_object(entryName):
 
     import pandas as pd
-    truePath = "/home/velocitatem/Documents/Projects/AI_Hackathon_2023/data_0611/ground_truth_0611.xlsx"
+    truePath = "./data_0611/ground_truth_0611.xlsx"
     trueData = pd.read_excel(truePath)
     ctFile = entryName
 
     exp=trueData[trueData["Isin"] == ctFile.split(".")[0]]
     exp=exp.to_dict(orient="records")[0]
     # rename columns
-    exp["LaunchDate"] = exp.pop("Launch Date")
-    exp["FinalValDay"] = exp.pop("Final Val. Day")
+    exp["Launchdate"] = exp.pop("Launch Date")
+    exp["Finalvalday"] = exp.pop("Final Val. Day")
 
     # convert Underlying(s) and all following Unnamed columns to list
     exp["Underlying"] = [exp["Underlying(s)"], exp["Unnamed: 5"], exp["Unnamed: 6"], exp["Unnamed: 7"], exp["Unnamed: 8"]]

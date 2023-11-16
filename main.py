@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-test_file = "XS2358486194.pdf"
 # ct = extract_data(test_file)
 # print(ct)
 
