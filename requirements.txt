@@ -1,0 +1,7 @@
+pydantic
+json
+typing
+re
+pandas
+openai
+langchain
