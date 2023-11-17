@@ -65,27 +65,71 @@ def betas_to_csv(items):
 
 
 
+# keywords = ['isin','issuer','ccy','currency','underlying','underlyings','strike','strikes','launch','date','dates','final valuation','day','maturity','cap','barrier','redemption','amount']
+keywords = [
+    'issuer', 'issuing','issuing entity', 'issuing company', 'issuing corporation', 'issuer firm', 'issuing institution',
+    'currency', 'ccy', 'money','monetary', 'monetary unit', 'legal tender', 'fiat currency', 'exchange medium',
+    'underlying', 'assests' 'underlying assets', 'base assets', 'core assets', 'fundamental assets',
+    'strike date', 'strike day', 'exercise date', 'option strike date', 'option exercise date', 'strike',
+    'final valuation date', 'last valuation date', 'ultimate valuation date', 'end valuation date',
+    'launch date', 'start date', 'inception date', 'commencement date', 'beginning date', 'opening date',
+    'maturity date', 'expiration date', 'expiry date', 'termination date', 'end date', 'last date', 'due date',
+    'isin', 'international securities identification number', 'security identifier', 'stock identifier','instrument identifier',
+    'strike', 'strikes', 'strike price', 'exercise price', 'option price', 'target price',
+    'laung','launch date', 'initiation date', 'start date','inception date' 'commence launch', 'begin launch', 'inaugurate launch',
+    'date', 'dates', 'day', 'days','time', 'period', 'periods', 'moment', 'calendar day',
+    'final valuation', 'last valuation', 'ultimate valuation', 'final assessment', 'end valuation',
+    'business day', 'trading day', 'working day',
+    'cap','cap level','boundary', 'ceiling', 'limit', 'maximum', 'upper bound', 'upper limit','top level',
+    'barrier', 'threshold', 'limit', 'boundary', 'obstacle', 'hindrance', 'trigger level','barrier point',
+    # hard coded values
+    'percent', 'max', ' x ', ' × ', 'redemption date', 'redemption amount', 'usd', 'eur', 'barrier event',
+    "%"
+]
+
+
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
 import re
 def extract_data(file_name):
     path = "./data_0611/" + file_name
     loader = PyPDFLoader(path)
     data=loader.load()
+    #r'\b(?:\d{1,2}[-\/.]\d{1,2}[-\/.]\d{2,4}|\d{2,4}[-\/.]\d{1,2}[-\/.]\d{1,2}|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}[,.]?[-\s]*\d{2,4}|\d{1,2}\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[,.\s]+\d{2,4})\b'
+    
     # TODO Check with regex
+    regex_pattern = r'\b(?: '+'|'.join(map(re.escape, keywords)) + r')\b|\b(?:\d{1,2}[-\/.]\d{1,2}[-\/.]\d{2,4}|\d{2,4}[-\/.]\d{1,2}[-\/.]\d{1,2}|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}[,.]?[-\s]*\d{2,4}|\d{1,2}\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[,.\s]+\d{2,4})\b'
     seen = set()
     raw = ""
     for page in data:
         # TODO Check with regex if not in seen and in page
         # we just add to raw because its important
         shouldAdd = True
+        filtered_page = re.search(regex_pattern, page.page_content, re.IGNORECASE) 
+        
         for i in seen:
-            if i in page.page_content:
+            if i in filtered_page.page_content:
                 shouldAdd = False
                 break
         if shouldAdd:
-            seen.add(page.page_content)
-        raw += page.page_content
-    raw = raw.replace("\n", " ")
+            seen.add(filtered_page.page_content)
+        
+        raw += filtered_page 
+    # go over each string in list
+    raw = raw.replace("\n", " ") 
 
+    stop_words = set(stopwords.words('english'))
+    tokenized_raw = word_tokenize(raw)
+    
+    raw = "" 
+    for w in tokenized_raw:
+        if w not in stop_words:
+            raw += w  
+            #! THIS RAW is the one passed on to open ai 
+            #! it is first filtered by the regular expression which includes keywords + date formats
+            #! Then, we remove the stopwords, y voila!
+            
     from openai import OpenAI
     client = OpenAI()
 
