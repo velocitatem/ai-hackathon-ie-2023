@@ -95,13 +95,14 @@ import re
 
 def count_words(text):
     words = re.findall(r'\w+', text)
-    return words
+    return len(words)
 
 
 def count_file_words(data):
     word_count = 0
-    for page in data: 
+    for page in data:
         word_count += count_words(page.page_content)
+    print(word_count)
     return word_count
 
 def extract_data(file_name):
@@ -118,7 +119,7 @@ def extract_data(file_name):
     # TODO Here hte issue is that we are minifying all the pages, which is not optimal
     # we should check if a whole document is too long, and only then minify it
     # We might be able to do this quickly with the document object but im not sure
-    if count_file_words(data) < 12500:
+    if count_file_words(data) < 10500:
         # pass everything to the model
         for page in data:
             hasOccurence = page.page_content is not None
@@ -126,6 +127,7 @@ def extract_data(file_name):
             if shouldAdd:
                 raw += page.page_content + " "
     else:
+        print("Minifying")
         # trim the data
         for page in data:
             filtered_page = re.search(regex_pattern, page.page_content, re.IGNORECASE)
@@ -133,17 +135,17 @@ def extract_data(file_name):
             shouldAdd = hasOccurence is not None
             if shouldAdd:
                 raw += page.page_content + " "
-                
-            
+
+
         raw = raw.replace("\n", " ")
-        
+
         # add stop words
         tokenized_raw = word_tokenize(raw)
         raw = ""
         for w in tokenized_raw:
             if w not in stop_words:
                 raw += w
-        
+
     # for page in data:
     #     # TODO Check with regex if not in seen and in page
     #     # we just add to raw because its important
