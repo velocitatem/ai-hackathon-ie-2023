@@ -4,7 +4,6 @@ from typing import List, Optional
 import json
 from langchain.document_loaders import PyPDFLoader
 from openai import OpenAI
-client = OpenAI()
 
 class Beta(BaseModel):
     Isin: str = Field(..., description="Unique identifier for the structured product, following the International Securities Identification Number (ISIN) format.")
@@ -86,6 +85,7 @@ def count_file_words(data):
 
 def extract_data(file_name, gpt4=False):
 
+    client = OpenAI()
     path = "./data_0611/" + file_name
     loader = PyPDFLoader(path)
     data=loader.load()
@@ -99,7 +99,7 @@ def extract_data(file_name, gpt4=False):
     # TODO Here hte issue is that we are minifying all the pages, which is not optimal
     # we should check if a whole document is too long, and only then minify it
     # We might be able to do this quickly with the document object but im not sure
-    if count_file_words(data) < 10500:
+    if count_file_words(data) < 10000:
         # pass everything to the model
         for page in data:
             hasOccurence = page.page_content is not None
@@ -185,6 +185,10 @@ def extract_data(file_name, gpt4=False):
     for a in ["Underlying", "Strike"]:
         if ct[a] is None:
             ct[a] = []
+
+    # if ISIN is not given or null, we make "NAN"
+    if "Isin" not in ct or ct["Isin"] is None:
+        ct["Isin"] = "NAN"
 
     ct = Beta(**ct)
     return ct
