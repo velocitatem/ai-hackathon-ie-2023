@@ -11,22 +11,26 @@ load_dotenv()
 
 
 directory = "data_0611"
-output_filename = "output.csv"
 stack = []
 for ff in get_all_files():
     # chek if file exists
     if os.path.exists(directory + "/" + ff):
         print(ff)
-        ct = extract_data(ff)
-        print(ct)
-        stack.append(ct.dict())
-        betas_to_csv(stack, output_filename)
+        try:
+            ct = extract_data(ff)
+            if ct is None:
+                continue
+            print(ct)
+            stack.append(ct.dict())
+            betas_to_csv(stack, "output.csv")
+        except Exception as e:
+            # throw the error
+            print(e)
+            continue
 
 
 
 
-
-
-betas_to_csv(stack, output_filename)
+betas_to_csv(stack, "output.csv")
 # cs = betas_to_csv([ts.dict()])
 # print(cs)

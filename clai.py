@@ -3,23 +3,20 @@ import pandas as pd
 from typing import List, Optional
 import json
 from langchain.document_loaders import PyPDFLoader
+from openai import OpenAI
+client = OpenAI()
 
 class Beta(BaseModel):
-    Isin: str
-    Issuer: str
-    Ccy: str = Field(..., description="Currency of the product. Ex: 'EUR' Only 3 letter acronyms are allowed")
-# ["SX5E", "UKX", "SPX"]
-    Underlying: List[str] = Field(..., min_items=1, max_items=5,
-                                  description="Underlying(s) of the product. Ex: ['SX5E', 'UKX', 'SPX']")
-    Strike: List[float] = Field(..., min_items=1, max_items=5, description="Strike of the product. Also possibly reffered to 'Strike Level'")
-    Launchdate: str = Field(..., description="Launch date of the product. Ex: '31/12/2021' in the format 'dd/mm/yyyy'. It could also be called 'Initial Valuation Date'")
-    Finalvalday: Optional[str] = Field(..., description="Final valuation day of the product. Ex: '31/12/2022' in the format 'dd/mm/yyyy'")
-    Maturity: str = Field(..., description="Maturity of the product. Ex: '31/12/2023' in the format 'dd/mm/yyyy'")
-    # optional
-    Cap: Optional[int] = Field(..., description="Cap of the product. Ex: 130. This will quite probably not be included")
-    Barrier: int = Field(..., description="Barrier of the product. Ex: 70 in PERCENTAGE. It could also be called 'Knock-in Larrier'. Possibly written as a multiplier of the initial price.")
-
-    # if someonething is missing its None
+    Isin: str = Field(..., description="Unique identifier for the structured product, following the International Securities Identification Number (ISIN) format.")
+    Issuer: str = Field(..., description="Name of the entity issuing the structured product. This should be the full legal name of the issuer.")
+    Ccy: str = Field(..., description="The three-letter currency code representing the currency of the product, as per ISO 4217 standard. Example: 'EUR'.")
+    Underlying: List[str] = Field(..., min_items=1, max_items=5, description="List of underlying assets or indices associated with the product. Provide up to five valid tickers. Example: ['SX5E', 'UKX', 'SPX'].")
+    Strike: List[float] = Field(..., min_items=1, max_items=5, description="List of strike prices or levels for the product, corresponding to each underlying asset. Provide up to five values. Example: [120.5, 130.0].")
+    Launchdate: str = Field(..., description="The launch or initial valuation date of the product, marking the start of its lifecycle, in 'dd/mm/yyyy' format. Example: '31/12/2021'. This date sets the initial conditions for the product.")
+    Finalvalday: str = Field(None, description="The final valuation day, distinct from the maturity date, formatted as 'dd/mm/yyyy'. This is the date for the final assessment of the product's value before maturity. Example: '31/12/2022'.")
+    Maturity: str = Field(..., description="The maturity date of the product, indicating its expiration and the end of its term, in 'dd/mm/yyyy' format. It's the date when final settlements are made based on the final valuation. Example: '31/12/2023'.")
+    Cap: Optional[int] = Field(None, description="Optional. The upper limit or cap of the product's return, expressed as a percentage. Example: 130. Leave blank if not applicable.")
+    Barrier: int = Field(..., description="The barrier level of the product, specified in percentage terms. This represents a critical price level for features like knock-in. Example: 70 (indicating 70% of the initial price).")
 
 
 
@@ -74,7 +71,7 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 import re
-def extract_data(file_name):
+def extract_data(file_name, gpt4=False):
     path = "./data_0611/" + file_name
     loader = PyPDFLoader(path)
     data=loader.load()
@@ -90,6 +87,9 @@ def extract_data(file_name):
     # We might be able to do this quickly with the document object but im not sure
 
     for page in data:
+        raw += page.page_content + " "
+        # skip all code
+        continue
         # TODO Check with regex if not in seen and in page
         # we just add to raw because its important
         filtered_page = re.search(regex_pattern, page.page_content, re.IGNORECASE)
@@ -101,56 +101,73 @@ def extract_data(file_name):
             raw += page.page_content + " "
 
 
-    # go over each string in list
-    raw = raw.replace("\n", " ")
+    # # go over each string in list
+    # raw = raw.replace("\n", " ")
 
-    stop_words = set(stopwords.words('english'))
-    tokenized_raw = word_tokenize(raw)
+    # stop_words = set(stopwords.words('english'))
+    # tokenized_raw = word_tokenize(raw)
 
-    raw = ""
-    for w in tokenized_raw:
-        if w not in stop_words:
-            raw += w
-            #! THIS RAW is the one passed on to open ai
-            #! it is first filtered by the regular expression which includes keywords + date formats
-            #! Then, we remove the stopwords, y voila!
+    # raw = ""
+    # for w in tokenized_raw:
+    #     if w not in stop_words:
+    #         raw += w
+    #         #! THIS RAW is the one passed on to open ai
+    #         #! it is first filtered by the regular expression which includes keywords + date formats
+    #         #! Then, we remove the stopwords, y voila!
 
-    from openai import OpenAI
-    client = OpenAI()
+    # try rate limiting
 
     completion = client.chat.completions.create(
-    model="gpt-3.5-turbo-1106",
-    messages=[
-        {"role": "system", "content": "You are a helpful assistant to a financial advisor where you extract accurate data from a document and fill in a form. Take a deep breath and think carefully and step by step."},
-        {"role": "user", "content": "I need to fill in a form for a structured product. The structure is given by the following json:" + Beta.schema_json(indent=2)},
-        {"role": "system", "content": Beta.schema_json(indent=2)},
-        {"role": "user", "content": "The document is the following:"},
-        {"role": "system", "content": raw},
-        {"role": "user", "content": "Just to remind you the format is the following:\n" + Beta.schema_json(indent=2)},
-        {"role": "system", "content": "Return the data as a JSON that is key~value pairing not a schema. Make sure to pay attention to how the keys are spelled. My boss is very strict about it and my career depends on it. Go."},
-    ],
-    response_format={ 'type': "json_object" }
+        model="gpt-3.5-turbo-1106" if not gpt4 else "gpt-4-1106-preview",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are an assistant specialized in financial data analysis and extraction. Your task is to meticulously process a structured product schema and accurately populate a form with relevant data extracted from a provided document."
+            },
+            {
+                "role": "user",
+                "content": "The structured product schema is defined as follows:" + Beta.schema_json(indent=2)
+            },
+            {
+                "role": "system",
+                "content": Beta.schema_json(indent=2)
+            },
+            {
+                "role": "user",
+                "content": "Here is the document with the necessary data:"
+            },
+            {
+                "role": "system",
+                "content": raw
+            },
+            {
+                "role": "user",
+                "content": "Can you process this information and provide the data in a JSON format according to the schema? Remember, accuracy and detail are critical in this task."
+            },
+            {
+                "role": "system",
+                "content": "Analyzing the document and extracting data. I will ensure the output is accurate and aligns with the given schema, presented in a well-structured JSON format."
+            }
+        ],
+        response_format={'type': "json_object"}
     )
+    # get the status of the completion
+    print(completion)
 
     print(completion.choices[0].message)
     # save json to file
     ct = json.loads(completion.choices[0].message.content)
-    for k, v in ct.items():
-        if v == "":
-            # replace with expected type 0 or "" or []
-            if k in ["Cap", "Barrier"]:
-                ct[k] = 0
-            else:
-                ct[k] = None
-    if pd.isnull(ct["Cap"]):
-        ct["Cap"] = 0
-    if pd.isnull(ct["Barrier"]):
-        ct["Barrier"] = 0
-    # other possible fails are Underlying(s) and Strike
-    if ct["Underlying"] == "":
-        ct["Underlying"] = []
-    if ct["Strike"] == "":
-        ct["Strike"] = []
+    # if we have missing values, we need to fill them with nothing so pydantic can parse it
+
+    # check if we have all the fields
+    for a in Beta.__fields__:
+        if a not in ct:
+            ct[a] = None
+    # now make sure all the lists are not empty
+    for a in ["Underlying", "Strike"]:
+        if ct[a] is None:
+            ct[a] = []
+
     ct = Beta(**ct)
     return ct
 
