@@ -23,43 +23,25 @@ class Beta(BaseModel):
 
 
 
-def betas_to_csv(items):
-    """
-    Example:
-    File name	Isin	Issuer	Ccy	Underlying(s)					Strike					Launch Date	Final Val. Day	Maturity	Cap	Barrier
-    AB3ZFW - RBC 18-Month EUR Twin Win Autocallable on Societe Generale SA.pdf	XS1878076543	RBC	EUR	GLE					33.164					11/01/2022	11/07/2023	18/07/2023		70
-    ---
-    Reserver 5 columns for Underlying(s) and Strike
-    """
-    # df based on Beta object
-    string = "File name,Isin,Issuer,Ccy,Underlying(s),,,,,Strike,,,,,Launch Date,Final Val. Day,Maturity,Cap,Barrier\n"
-    for item in items:
-        if item is None:
-            string+=",,,,,,,,,,,,,,,,,,,\n"
-            continue
-        csv_line = ""
-        csv_line += item["Isin"] + ".pdf,"
-        csv_line += item["Isin"] + ","
-        csv_line += item["Issuer"] + ","
-        csv_line += item["Ccy"] + ","
-        # underlying can be up to 5, leave 5 columns for it, fill with empty string if not enough
-        csv_line += ",".join([str(i) for i in item["Underlying"]]) + ","
-        # empty fields for Underlying(s)
-        csv_line += "," * (4 - len(item["Underlying"])) + ","
-        # strike can be up to 5, leave 5 columns for it, fill with empty string if not enough
-        csv_line += ",".join([str(i) for i in item["Strike"]]) + ","
-        # empty fields for Strike
-        csv_line += "," * (4 - len(item["Strike"])) + ","
-        csv_line += item["Launchdate"] + ","
-        csv_line += item["Finalvalday"] + ","
-        csv_line += item["Maturity"] + ","
-        csv_line += str(item["Cap"]) + ","
-        csv_line += str(item["Barrier"])
-        string += csv_line + "\n"
-    # save to csv
-    with open("beta.csv", "w") as f:
-        f.write(string)
-    return "beta.csv"
+def betas_to_csv(items,file_name):
+    beta_field_to_csv = {
+        "Isin": "Isin",
+        "Issuer": "Issuer",
+        "Ccy": "Ccy",
+        "Underlying": "Underlying(s)",
+        "Strike": "Strike",
+        "Launchdate": "Launch Date",
+        "Finalvalday": "Final Val. Day",
+        "Maturity": "Maturity",
+        "Cap": "Cap",
+        "Barrier": "Barrier"
+    }
+    import pandas as pd
+    df = pd.DataFrame([i for i in items])
+    df = df.rename(columns=beta_field_to_csv)
+    df.to_csv(file_name, index=False)
+
+
 
 
 
@@ -194,10 +176,6 @@ def entry_to_object(entryName):
     exp["Finalvalday"] = exp.pop("Final Val. Day")
 
     # convert Underlying(s) and all following Unnamed columns to list
-    exp["Underlying"] = [exp["Underlying(s)"], exp["Unnamed: 5"], exp["Unnamed: 6"], exp["Unnamed: 7"], exp["Unnamed: 8"]]
-    exp["Strike"] = [exp["Strike"], exp["Unnamed: 10"], exp["Unnamed: 11"], exp["Unnamed: 12"], exp["Unnamed: 13"]]
-    exp.pop("Underlying(s)")
-    [exp.pop(k) for k in ["Unnamed: 5", "Unnamed: 6", "Unnamed: 7", "Unnamed: 8", "Unnamed: 10", "Unnamed: 11", "Unnamed: 12", "Unnamed: 13"]]
     # replace empty string with 0 if the column is Cap or Barrier
     # remove nan in Underlying(s) and Strike list
     for k, v in exp.items():
