@@ -3,3 +3,5 @@ typing
 pandas
 openai
 langchain
+argparse
+nltk
