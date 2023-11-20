@@ -1,4 +1,5 @@
 from clai import *
+import nltk
 import argparse
 import os
 # load .env
@@ -26,6 +27,12 @@ def docall(directory, output_name, gpt4=False):
 
 
 def main():
+    # check if nltk stopwords are downloaded
+    try:
+        nltk.data.find('corpora/stopwords')
+    except LookupError:
+        nltk.download('stopwords')
+
     parser = argparse.ArgumentParser(description='Extract structured product data from PDF documents.')
     parser.add_argument('dataset', type=str, help='Path to the directory containing PDF documents.')
     parser.add_argument('output_name', type=str, help='Name of the output CSV file. Ex: out.csv')

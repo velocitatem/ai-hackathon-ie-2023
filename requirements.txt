@@ -6,3 +6,5 @@ langchain
 argparse
 nltk
 dotenv
+python-dotenv
+pypdf
