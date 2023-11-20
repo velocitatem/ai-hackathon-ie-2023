@@ -92,46 +92,64 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 import re
+
+def count_words(text):
+    words = re.findall(r'\w+', text)
+    return words
+
+
+def count_file_words(data):
+    word_count = 0
+    for page in data: 
+        word_count += count_words(page.page_content)
+    return word_count
+
 def extract_data(file_name):
     path = "./data_0611/" + file_name
     loader = PyPDFLoader(path)
     data=loader.load()
     #r'\b(?:\d{1,2}[-\/.]\d{1,2}[-\/.]\d{2,4}|\d{2,4}[-\/.]\d{1,2}[-\/.]\d{1,2}|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}[,.]?[-\s]*\d{2,4}|\d{1,2}\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[,.\s]+\d{2,4})\b'
 
+    stop_words = set(stopwords.words('english'))
     regex_pattern = r'\b(?: '+'|'.join(map(re.escape, keywords)) + r')\b|\b(?:\d{1,2}[-\/.]\d{1,2}[-\/.]\d{2,4}|\d{2,4}[-\/.]\d{1,2}[-\/.]\d{1,2}|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}[,.]?[-\s]*\d{2,4}|\d{1,2}\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[,.\s]+\d{2,4})\b'
     seen = set()
     raw = ""
 
-
     # TODO Here hte issue is that we are minifying all the pages, which is not optimal
     # we should check if a whole document is too long, and only then minify it
     # We might be able to do this quickly with the document object but im not sure
-
-    for page in data:
-        # TODO Check with regex if not in seen and in page
-        # we just add to raw because its important
-        filtered_page = re.search(regex_pattern, page.page_content, re.IGNORECASE)
-        hasOccurence = filtered_page is not None
-        print(filtered_page)
-
-        shouldAdd = hasOccurence is not None
-        if shouldAdd:
-            raw += page.page_content + " "
-
-
-    # go over each string in list
-    raw = raw.replace("\n", " ")
-
-    stop_words = set(stopwords.words('english'))
-    tokenized_raw = word_tokenize(raw)
-
-    raw = ""
-    for w in tokenized_raw:
-        if w not in stop_words:
-            raw += w
-            #! THIS RAW is the one passed on to open ai
-            #! it is first filtered by the regular expression which includes keywords + date formats
-            #! Then, we remove the stopwords, y voila!
+    if count_file_words(data) < 12500:
+        # pass everything to the model
+        for page in data:
+            hasOccurence = page.page_content is not None
+            shouldAdd = hasOccurence is not None
+            if shouldAdd:
+                raw += page.page_content + " "
+    else:
+        # trim the data
+        for page in data:
+            filtered_page = re.search(regex_pattern, page.page_content, re.IGNORECASE)
+            hasOccurence = filtered_page is not None
+            shouldAdd = hasOccurence is not None
+            if shouldAdd:
+                raw += page.page_content + " "
+                
+            
+        raw = raw.replace("\n", " ")
+        
+        # add stop words
+        tokenized_raw = word_tokenize(raw)
+        raw = ""
+        for w in tokenized_raw:
+            if w not in stop_words:
+                raw += w
+        
+    # for page in data:
+    #     # TODO Check with regex if not in seen and in page
+    #     # we just add to raw because its important
+    #     filtered_page = re.search(regex_pattern, page.page_content, re.IGNORECASE)
+    #     hasOccurence = filtered_page is not None
+    #     print(filtered_page)
 
     from openai import OpenAI
     client = OpenAI()
