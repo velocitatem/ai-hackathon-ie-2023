@@ -1,4 +1,6 @@
-# :rocket:
-1. have a directory `data_0611` that has all the files and the ground truth sheet
+# :rocket: submission V2
 2. `pip install -r requirements.txt`
-3. `python main.py`
+3. `python main.py [dataset] [output] --gpt4`
+  + `dataset` - the directory with all the content to process
+  + `output` the name of the file to write to Ex: `out.csv`
+  + `--gpt4` for better performance please use this option

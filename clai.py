@@ -99,7 +99,7 @@ def extract_data(file_name, gpt4=False):
     # TODO Here hte issue is that we are minifying all the pages, which is not optimal
     # we should check if a whole document is too long, and only then minify it
     # We might be able to do this quickly with the document object but im not sure
-    if count_file_words(data) < 10000:
+    if not gpt4 and count_file_words(data) < 10000:
         # pass everything to the model
         for page in data:
             hasOccurence = page.page_content is not None
@@ -134,6 +134,7 @@ def extract_data(file_name, gpt4=False):
     #     print(filtered_page)
 
     # try rate limiting
+    print("Running Query")
 
     completion = client.chat.completions.create(
         model="gpt-3.5-turbo-1106" if not gpt4 else "gpt-4-1106-preview",
@@ -172,7 +173,6 @@ def extract_data(file_name, gpt4=False):
     # get the status of the completion
     print(completion)
 
-    print(completion.choices[0].message)
     # save json to file
     ct = json.loads(completion.choices[0].message.content)
     # if we have missing values, we need to fill them with nothing so pydantic can parse it
@@ -187,8 +187,25 @@ def extract_data(file_name, gpt4=False):
             ct[a] = []
 
     # if ISIN is not given or null, we make "NAN"
-    if "Isin" not in ct or ct["Isin"] is None:
-        ct["Isin"] = "NAN"
+
+    # go over all the fields and make sure they are not null
+    # also check if they are a propper type, if not, make them default for the type
+    for a in [bt for bt in Beta.__fields__ if bt not in ["Underlying", "Strike"]]:
+        tp = Beta.__fields__[a].type_
+        if tp != type(ct[a]):
+            # if not, make it the default for the type
+            # int = 0 , str = "", list = [] etc
+            if tp == str:
+                ct[a] = ""
+            elif tp == int:
+                ct[a] = 0
+            elif tp == list:
+                ct[a] = []
+            else:
+                ct[a] = None
+    for a in ["Underlying", "Strike"]:
+        if not isinstance(ct[a], list):
+            ct[a] = []
 
     ct = Beta(**ct)
     return ct
