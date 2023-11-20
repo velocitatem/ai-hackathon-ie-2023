@@ -190,6 +190,33 @@ def extract_data(file_name, gpt4=False):
     if "Isin" not in ct or ct["Isin"] is None:
         ct["Isin"] = "NAN"
 
+    if "Issuer" not in ct or ct["Issuer"] is None:
+        ct["Issuer"] = "NAN"
+
+    if "Ccy" not in ct or ct["Ccy"] is None:
+        ct['Ccy'] = "NAN"
+    
+    if "Underlying(s)" not in ct or ct["Underlying(s)"] is None:
+        ct["Underlying(s)"] = "NAN"
+    
+    if "Strike" not in ct or ct["Strike"] is None:
+        ct["Strike"] = "NAN"
+        
+    if "Launch Date" not in ct or ct["Launch Date"] is None:
+        ct["Launch Date"] = "NAN"
+        
+    if "Final Val. Date" not in ct or ct["Final Val. Date"] is None:
+        ct["Final Val. Date"] = "NAN"
+        
+    if "Maturity" not in ct or ct["Maturity"] is None:
+        ct["Maturity"] = "NAN"
+        
+    if "Cap" not in ct or ct["Cap"] is None:
+        ct["Cap"] = "NAN"
+        
+    if "Barrier" not in ct or ct["Barrier"] is None:
+        ct["Barrier"] = "NAN"
+
     ct = Beta(**ct)
     return ct
 
