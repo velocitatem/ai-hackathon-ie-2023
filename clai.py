@@ -99,7 +99,7 @@ def extract_data(file_name, gpt4=False):
     # TODO Here hte issue is that we are minifying all the pages, which is not optimal
     # we should check if a whole document is too long, and only then minify it
     # We might be able to do this quickly with the document object but im not sure
-    if not gpt4 and count_file_words(data) < 10000:
+    if gpt4 or count_file_words(data) < 10000:
         # pass everything to the model
         for page in data:
             hasOccurence = page.page_content is not None

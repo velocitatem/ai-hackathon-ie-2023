@@ -32,6 +32,7 @@ def main():
         nltk.data.find('corpora/stopwords')
     except LookupError:
         nltk.download('stopwords')
+        nltk.download('punkt')
 
     parser = argparse.ArgumentParser(description='Extract structured product data from PDF documents.')
     parser.add_argument('dataset', type=str, help='Path to the directory containing PDF documents.')
