@@ -11,14 +11,14 @@ load_dotenv()
 # print(ct)
 
 
-def docall(directory, output_name, gpt4=False):
+def docall(directory : str, output_name : str, gpt4 : bool = False) -> None:
     stack = []
     targets = [fn for fn in os.listdir(directory) if fn.lower().endswith('.pdf')]
     for filename in sorted(targets):
-        pdf_path = os.path.join(filename)
+        pdf_path = os.path.join(directory, filename)
         print("Getting ", pdf_path)
         data = extract_data(pdf_path, gpt4)
-        stack.append(data.dict())
+        stack.append(data)
         if data is not None:
             betas_to_csv(stack, output_name)
 

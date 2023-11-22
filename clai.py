@@ -1,17 +1,25 @@
+"""
+A collection of functions used to extract data from a PDF file and return a JSON object for the given schema under term-sheets.
+"""
+
 from pydantic import BaseModel, Field
-import pandas as pd
 from typing import List, Optional
 import json
 from langchain.document_loaders import PyPDFLoader
 from openai import OpenAI
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+import re
+import pandas as pd
 
 class Beta(BaseModel):
     Isin: str = Field(..., description="Unique identifier for the structured product, following the International Securities Identification Number (ISIN) format.")
     Issuer: str = Field(..., description="Name of the entity issuing the structured product. This should be the full legal name of the issuer.")
     Ccy: str = Field(..., description="The three-letter currency code representing the currency of the product, as per ISO 4217 standard. Example: 'EUR'.")
-    Underlying: List[str] = Field(..., min_items=1, max_items=5, description="List of underlying assets or indices associated with the product. Provide up to five valid tickers. Example: ['SX5E', 'UKX', 'SPX'].")
-    Strike: List[float] = Field(..., min_items=1, max_items=5, description="List of strike prices or levels for the product, corresponding to each underlying asset. Provide up to five values. Example: [120.5, 130.0].")
-    Launchdate: str = Field(..., description="The launch or initial valuation date of the product, marking the start of its lifecycle, in 'dd/mm/yyyy' format. Example: '31/12/2021'. This date sets the initial conditions for the product.")
+    Underlying: List[str] = Field(..., description="List of underlying assets or indices associated with the product. Provide up to five valid tickers. Example: ['SX5E', 'UKX', 'SPX'].")
+    Strike: List[float] = Field(..., description="List of strike prices or levels for the product, corresponding to each underlying asset. Provide up to five values. Example: [120.5, 130.0]. Specific price levels set on the Strike Date for different underlying assets")
+    Launchdate: str = Field(..., description="The launch or initial valuation date of the product, marking the start of its lifecycle, in 'dd/mm/yyyy' format. Example: '31/12/2021'. This date sets the initial conditions for the product. Also called the Trade Date or Initial Valuation Date. ")
     Finalvalday: str = Field(None, description="The final valuation day, distinct from the maturity date, formatted as 'dd/mm/yyyy'. This is the date for the final assessment of the product's value before maturity. Example: '31/12/2022'.")
     Maturity: str = Field(..., description="The maturity date of the product, indicating its expiration and the end of its term, in 'dd/mm/yyyy' format. It's the date when final settlements are made based on the final valuation. Example: '31/12/2023'.")
     Cap: Optional[int] = Field(None, description="Optional. The upper limit or cap of the product's return, expressed as a percentage. Example: 130. Leave blank if not applicable.")
@@ -19,7 +27,10 @@ class Beta(BaseModel):
 
 
 
-def betas_to_csv(items,file_name):
+def betas_to_csv(items: list, file_name : str) -> None:
+    """
+    Takes a list of Beta objects and saves them to a csv file with the given name.
+    """
     beta_field_to_csv = {
         "Isin": "Isin",
         "Issuer": "Issuer",
@@ -29,11 +40,17 @@ def betas_to_csv(items,file_name):
         "Launchdate": "Launch Date",
         "Finalvalday": "Final Val. Day",
         "Maturity": "Maturity",
-        "Cap": "Cap",
-        "Barrier": "Barrier"
+        "Barrier": "Barrier",
+        "Cap": "Cap"
     }
-    import pandas as pd
-    df = pd.DataFrame([i for i in items])
+    # some items might be missing fields
+    # we need to add them
+    for item in items:
+        for field in beta_field_to_csv:
+            if field not in item:
+                item[field] = "Nan"
+
+    df = pd.DataFrame(items)
     df = df.rename(columns=beta_field_to_csv)
     df.to_csv(file_name, index=False)
 
@@ -66,27 +83,64 @@ keywords = [
 ]
 
 
-import nltk
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
-import re
 
-def count_words(text):
+def count_words(text : str) -> int:
+    """
+    Counts the number of words in a string.
+    """
     words = re.findall(r'\w+', text)
     return len(words)
 
 
-def count_file_words(data):
+def count_file_words(data : list) -> int:
+    """
+    Counts the number of words in a list of pages.
+    """
     word_count = 0
     for page in data:
         word_count += count_words(page.page_content)
     print(word_count)
     return word_count
 
-def extract_data(file_name, gpt4=False):
 
+def format_response_to_json(response_string : str, gpt4 : bool = False) -> dict:
+    """
+    Takes a string and formats it into a JSON object. This is used to parse the output of the previous model.
+    """
     client = OpenAI()
-    path = "./data_0611/" + file_name
+    completion = client.chat.completions.create(
+        model="gpt-3.5-turbo-1106" if not gpt4 else "gpt-4-1106-preview",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are an assistant specialized in financial data analysis and extraction. Your task is to meticulously process a structured product schema and accurately populate a form with relevant data extracted from a provided document. It is your job to to extract a solid JSON from the provided message. If any values are speculative or uncertain, you should not include them in the JSON. If anything is yet to be extracted, ignore it."
+            },
+            {
+                "role": "user",
+                "content": "This is the message you need to extract a JSON from: " + response_string
+            },
+            {
+                "role": "user",
+                "content": "The following are fields that need to be extracted from the document: " + Beta.schema_json(indent=2)
+            },
+            {
+                "role": "user",
+                "content": "Think carefully and think step by step. Take a deep breath and give me an accurate JSON. DO NOT create any new fields. If you are not sure about a value, leave it blank."
+            }
+        ],
+        response_format={'type': "json_object"}
+    )
+    data = completion.choices[0].message.content
+    parsed = json.loads(data)
+    return parsed
+
+
+def extract_data(file_name : str, gpt4: bool = False) -> dict:
+    """
+    Extracts data from a PDF file and returns a JSON object.
+    """
+    client = OpenAI()
+    path =  file_name
     loader = PyPDFLoader(path)
     data=loader.load()
     #r'\b(?:\d{1,2}[-\/.]\d{1,2}[-\/.]\d{2,4}|\d{2,4}[-\/.]\d{1,2}[-\/.]\d{1,2}|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}[,.]?[-\s]*\d{2,4}|\d{1,2}\s+(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)[,.\s]+\d{2,4})\b'
@@ -126,14 +180,8 @@ def extract_data(file_name, gpt4=False):
             if w not in stop_words:
                 raw += w
 
-    # for page in data:
-    #     # TODO Check with regex if not in seen and in page
-    #     # we just add to raw because its important
-    #     filtered_page = re.search(regex_pattern, page.page_content, re.IGNORECASE)
-    #     hasOccurence = filtered_page is not None
-    #     print(filtered_page)
+    print("New length: ", count_words(raw))
 
-    # try rate limiting
     print("Running Query")
 
     completion = client.chat.completions.create(
@@ -165,89 +213,17 @@ def extract_data(file_name, gpt4=False):
             },
             {
                 "role": "system",
-                "content": "Analyzing the document and extracting data. I will ensure the output is accurate and aligns with the given schema, presented in a well-structured JSON format."
+                "content": "Analyzing the document and extracting data. I will ensure the output is accurate and aligns with the given schema, presented in a well-structured JSON format. This may take a few minutes, think step by step, and first creafully read the document, so you can justify why the data you extract is accurate. Take a deep breath and think step by step talking about where you are finding your data."
             }
         ],
-        response_format={'type': "json_object"}
     )
     # get the status of the completion
     print(completion)
 
     # save json to file
-    ct = json.loads(completion.choices[0].message.content)
-    # if we have missing values, we need to fill them with nothing so pydantic can parse it
+    ct = completion.choices[0].message.content
+    parsed = format_response_to_json(ct, gpt4=gpt4)
+    print(parsed)
+    return parsed
 
-    # check if we have all the fields
-    for a in Beta.__fields__:
-        if a not in ct:
-            ct[a] = None
-    # now make sure all the lists are not empty
-    for a in ["Underlying", "Strike"]:
-        if ct[a] is None:
-            ct[a] = []
-
-    # if ISIN is not given or null, we make "NAN"
-
-    # go over all the fields and make sure they are not null
-    # also check if they are a propper type, if not, make them default for the type
-    for a in [bt for bt in Beta.__fields__ if bt not in ["Underlying", "Strike"]]:
-        tp = Beta.__fields__[a].type_
-        if tp != type(ct[a]):
-            # if not, make it the default for the type
-            # int = 0 , str = "", list = [] etc
-            if tp == str:
-                ct[a] = ""
-            elif tp == int:
-                ct[a] = 0
-            elif tp == list:
-                ct[a] = []
-            else:
-                ct[a] = None
-    for a in ["Underlying", "Strike"]:
-        if not isinstance(ct[a], list):
-            ct[a] = []
-
-    ct = Beta(**ct)
-    return ct
-
-
-def get_all_files():
-    truePath = "./data_0611/ground_truth_0611.xlsx"
-    trueData = pd.read_excel(truePath)
-    return trueData["File name"].tolist()
-
-
-
-def entry_to_object(entryName):
-
-    import pandas as pd
-    truePath = "./data_0611/ground_truth_0611.xlsx"
-    trueData = pd.read_excel(truePath)
-    ctFile = entryName
-
-    exp=trueData[trueData["Isin"] == ctFile.split(".")[0]]
-    exp=exp.to_dict(orient="records")[0]
-    # rename columns
-    exp["Launchdate"] = exp.pop("Launch Date")
-    exp["Finalvalday"] = exp.pop("Final Val. Day")
-
-    # convert Underlying(s) and all following Unnamed columns to list
-    # replace empty string with 0 if the column is Cap or Barrier
-    # remove nan in Underlying(s) and Strike list
-    for k, v in exp.items():
-        if v == "":
-            # replace with expected type 0 or "" or []
-            if k in ["Cap", "Barrier"]:
-                exp[k] = 0
-            else:
-                exp[k] = None
-        elif k in ["Underlying", "Strike"]:
-            exp[k] = [i for i in v if pd.notnull(i)]
-        # timestamps to str
-        elif isinstance(v, pd.Timestamp):
-            exp[k] = v.strftime("%d.%m.%Y")
-    # make sure Cap is not nan
-    if pd.isnull(exp["Cap"]):
-        exp["Cap"] = 0
-    exp = Beta(**exp)
-    return exp
+#
