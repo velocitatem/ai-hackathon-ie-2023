@@ -17,14 +17,16 @@ class Beta(BaseModel):
     Isin: str = Field(..., description="Unique identifier for the structured product, following the International Securities Identification Number (ISIN) format.")
     Issuer: str = Field(..., description="Name of the entity issuing the structured product. This should be the full legal name of the issuer.")
     Ccy: str = Field(..., description="The three-letter currency code representing the currency of the product, as per ISO 4217 standard. Example: 'EUR'.")
-    Underlying: List[str] = Field(..., description="List of underlying assets or indices associated with the product. Provide up to five valid tickers. Example: ['SX5E', 'UKX', 'SPX'].")
-    Strike: List[float] = Field(..., description="List of strike prices or levels for the product, corresponding to each underlying asset. Provide up to five values. Example: [120.5, 130.0]. Specific price levels set on the Strike Date for different underlying assets")
+    Underlying: List[str] = Field(..., description="Underlying assets are the financial assets upon which a contracts price is based on. It's an identifier name to track the contract items. List of underlying assets. Example: ['SX5E', 'UKX', 'SPX']. ")
+    # old underlying: List of underlying assets or indices associated with the product. Provide up to five valid tickers. Example: ['SX5E', 'UKX', 'SPX'].
+    Strike: List[float] = Field(..., description="list of desired prices an underlying asset is expected to reach. Each strike price corresponds to a its own underlying asset. Example: [1902.659, 10632.05, 3855.76]. One to one relationship with underlying assets. Highly associated with underlying and its synonyms.")
+    # old strike: List of strike prices or levels for the product, corresponding to each underlying asset. Provide up to five values. Example: [120.5, 130.0]. Specific price levels set on the Strike Date for different underlying assets
     Launchdate: str = Field(..., description="The launch or initial valuation date of the product, marking the start of its lifecycle, in 'dd/mm/yyyy' format. Example: '31/12/2021'. This date sets the initial conditions for the product. Also called the Trade Date or Initial Valuation Date. ")
     Finalvalday: str = Field(None, description="The final valuation day, distinct from the maturity date, formatted as 'dd/mm/yyyy'. This is the date for the final assessment of the product's value before maturity. Example: '31/12/2022'.")
     Maturity: str = Field(..., description="The maturity date of the product, indicating its expiration and the end of its term, in 'dd/mm/yyyy' format. It's the date when final settlements are made based on the final valuation. Example: '31/12/2023'.")
     Cap: Optional[int] = Field(None, description="Optional. The upper limit or cap of the product's return, expressed as a percentage. Example: 130. Leave blank if not applicable.")
-    Barrier: int = Field(..., description="The barrier level of the product, specified in percentage terms. This represents a critical price level for features like knock-in. Example: 70 (indicating 70% of the initial price).")
-
+    Barrier: int = Field(..., description="The upper limit or capped limit that the product can reach. A percentage value. Example: 120. The maximum percentage a contract will reach if no special event occurs.")
+    #old barrier: The barrier level of the product, specified in percentage terms. This represents a critical price level for features like knock-in. Example: 70 (indicating 70% of the initial price).
 
 
 def betas_to_csv(items: list, file_name : str) -> None:
@@ -57,10 +59,6 @@ def betas_to_csv(items: list, file_name : str) -> None:
 
 
 
-
-
-
-# keywords = ['isin','issuer','ccy','currency','underlying','underlyings','strike','strikes','launch','date','dates','final valuation','day','maturity','cap','barrier','redemption','amount']
 keywords = [
     'issuer', 'issuing','issuing entity', 'issuing company', 'issuing corporation', 'issuer firm', 'issuing institution',
     'currency', 'ccy', 'money','monetary', 'monetary unit', 'legal tender', 'fiat currency', 'exchange medium',
@@ -75,11 +73,10 @@ keywords = [
     'date', 'dates', 'day', 'days','time', 'period', 'periods', 'moment', 'calendar day',
     'final valuation', 'last valuation', 'ultimate valuation', 'final assessment', 'end valuation',
     'business day', 'trading day', 'working day',
-    'cap','cap level','boundary', 'ceiling', 'limit', 'maximum', 'upper bound', 'upper limit','top level',
+    'cap','underlying cap','redemption','cap level','boundary', 'ceiling', 'limit', 'maximum', 'upper bound', 'upper limit','top level',
     'barrier', 'threshold', 'limit', 'boundary', 'obstacle', 'hindrance', 'trigger level','barrier point',
-    # hard coded values
     'percent', 'max', ' x ', ' × ', 'redemption date', 'redemption amount', 'usd', 'eur', 'barrier event',
-    "%"
+    "%", "put", "price", "prices"
 ]
 
 
