@@ -3,6 +3,8 @@ import json
 import time
 from pydantic import BaseModel, Field
 from typing import List, Optional
+from dotenv import load_dotenv
+load_dotenv()
 client = OpenAI()
 
 
