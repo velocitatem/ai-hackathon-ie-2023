@@ -10,9 +10,10 @@ client = OpenAI()
 
 
 class Beta(BaseModel):
-    Strike: List[float] = Field(..., description="List of strike prices or levels for the product, corresponding to each underlying asset. Provide up to five values. Example: [120.5, 130.0]. Specific price levels set on the Strike Date for different underlying assets. Must always be a list.")
+    Strike: List[float] = Field(..., description="List of desired prices an underlying asset should reach. A strike is a price that, when met, indicates an action of selling or buying a contract. Each strike price corresponds to its own underlying asset. Example: [1902.659, 10632.05, 3855.76].")
+    # old: List of strike prices or levels for the product, corresponding to each underlying asset. Provide up to five values. Example: [120.5, 130.0]. Specific price levels set on the Strike Date for different underlying assets
     Finalvalday: str = Field(..., description="The final valuation day, distinct from the maturity date, formatted as 'dd/mm/yyyy'. This is the date for the final assessment of the product's value before maturity. Example: '31/12/2022'.")
-    Cap: Optional[int] = Field(..., description="Optional. The upper limit or cap of the product's return, expressed as a percentage. Example: 130. Leave blank if not applicable.")
+    Cap: int = Field(..., description="the maximum revenue the issuer can get if successful. A limit, in percentage form, that an issuer can get if the final index is greater than the initial and no knockout-event occurs. It's calculated when the contract expires at its redemption date. Example: '120%'.")
 
 
 def format_response_to_json(response_string : str, gpt4 : bool = True) -> dict:

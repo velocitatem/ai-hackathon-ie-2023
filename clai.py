@@ -18,7 +18,8 @@ class Beta(BaseModel):
     Isin: str = Field(..., description="Unique identifier for the structured product, following the International Securities Identification Number (ISIN) format.")
     Issuer: str = Field(..., description="Name of the entity issuing the structured product. This should be the full legal name of the issuer.")
     Ccy: str = Field(..., description="The three-letter currency code representing the currency of the product, as per ISO 4217 standard. Example: 'EUR'.")
-    Underlying: List[str] = Field(..., description="List of underlying assets or indices associated with the product. Provide up to five valid tickers. Example: ['SX5E', 'UKX', 'SPX'].")
+    Underlying: List[str] = Field(..., description="List of underlying assets. Example: ['SX5E', 'UKX', 'SPX']. Underlying assets are the financial assets upon which a contracts price is based on. It's an identifier name to track the contract items.")
+    #old: List of underlying assets or indices associated with the product. Provide up to five valid tickers. Example: ['SX5E', 'UKX', 'SPX'].
     Launchdate: str = Field(..., description="The launch or initial valuation date of the product, marking the start of its lifecycle, in 'dd/mm/yyyy' format. Example: '31/12/2021'. This date sets the initial conditions for the product. Also called the Trade Date or Initial Valuation Date. ")
     Maturity: str = Field(..., description="The maturity date of the product, indicating its expiration and the end of its term, in 'dd/mm/yyyy' format. It's the date when final settlements are made based on the final valuation. Example: '31/12/2023'.")
     Barrier: int = Field(..., description="The barrier level of the product, specified in percentage terms. This represents a critical price level for features like knock-in. Example: 70 (indicating 70% of the initial price).")
@@ -79,7 +80,6 @@ keywords = [
     'business day', 'trading day', 'working day',
     'cap','cap level','boundary', 'ceiling', 'limit', 'maximum', 'upper bound', 'upper limit','top level',
     'barrier', 'threshold', 'limit', 'boundary', 'obstacle', 'hindrance', 'trigger level','barrier point',
-    # hard coded values
     'percent', 'max', ' x ', ' × ', 'redemption date', 'redemption amount', 'usd', 'eur', 'barrier event',
     "%"
 ]
@@ -142,9 +142,9 @@ def extract_data(file_name : str, gpt4: bool = False) -> dict:
     Extracts data from a PDF file and returns a JSON object.
     """
     questions = [
-        "Can you list the strike prices for each underlying asset for this product? The strike price is the set price at which an option contract can be bought or sold when it is exercised.",
+        "Can you list the strike prices for each underlying asset for this product? The strike price is the set price at which a contract can be bought or sold when it is reached.",
         "What is the final valuation day for this product? This is the date set for the final assessment of the product's value before its maturity.",
-        "Is there a cap on the product's return mentioned in the document? If so, what is it? The cap is the maximum limit on the return that the product can generate.",
+        "Is there a cap on the product's return mentioned in the document? If so, what is it? The cap is the maximum limit on the return that the product can generate if the final prices is greater than the initial.",
     ]
     # strike, final valuation, cap
 
