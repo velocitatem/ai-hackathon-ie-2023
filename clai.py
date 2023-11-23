@@ -2,6 +2,7 @@
 A collection of functions used to extract data from a PDF file and return a JSON object for the given schema under term-sheets.
 """
 
+from rag import turn_path_to_json
 from pydantic import BaseModel, Field
 from typing import List, Optional
 import json
@@ -18,11 +19,8 @@ class Beta(BaseModel):
     Issuer: str = Field(..., description="Name of the entity issuing the structured product. This should be the full legal name of the issuer.")
     Ccy: str = Field(..., description="The three-letter currency code representing the currency of the product, as per ISO 4217 standard. Example: 'EUR'.")
     Underlying: List[str] = Field(..., description="List of underlying assets or indices associated with the product. Provide up to five valid tickers. Example: ['SX5E', 'UKX', 'SPX'].")
-    Strike: List[float] = Field(..., description="List of strike prices or levels for the product, corresponding to each underlying asset. Provide up to five values. Example: [120.5, 130.0]. Specific price levels set on the Strike Date for different underlying assets")
     Launchdate: str = Field(..., description="The launch or initial valuation date of the product, marking the start of its lifecycle, in 'dd/mm/yyyy' format. Example: '31/12/2021'. This date sets the initial conditions for the product. Also called the Trade Date or Initial Valuation Date. ")
-    Finalvalday: str = Field(None, description="The final valuation day, distinct from the maturity date, formatted as 'dd/mm/yyyy'. This is the date for the final assessment of the product's value before maturity. Example: '31/12/2022'.")
     Maturity: str = Field(..., description="The maturity date of the product, indicating its expiration and the end of its term, in 'dd/mm/yyyy' format. It's the date when final settlements are made based on the final valuation. Example: '31/12/2023'.")
-    Cap: Optional[int] = Field(None, description="Optional. The upper limit or cap of the product's return, expressed as a percentage. Example: 130. Leave blank if not applicable.")
     Barrier: int = Field(..., description="The barrier level of the product, specified in percentage terms. This represents a critical price level for features like knock-in. Example: 70 (indicating 70% of the initial price).")
 
 
@@ -50,9 +48,15 @@ def betas_to_csv(items: list, file_name : str) -> None:
             if field not in item:
                 item[field] = "Nan"
 
-    df = pd.DataFrame(items)
-    df = df.rename(columns=beta_field_to_csv)
+    # maintain the order of the fields as specified in the schema
+    beta_field_order = beta_field_to_csv.keys()
+    # create a dataframe
+    df = pd.DataFrame(items, columns=beta_field_order)
+    # rename to dict vals
+    df.rename(columns=beta_field_to_csv, inplace=True)
+    # save it to a csv file
     df.to_csv(file_name, index=False)
+
 
 
 
@@ -139,6 +143,17 @@ def extract_data(file_name : str, gpt4: bool = False) -> dict:
     """
     Extracts data from a PDF file and returns a JSON object.
     """
+    questions = [
+        "Can you list the strike prices for each underlying asset for this product? The strike price is the set price at which an option contract can be bought or sold when it is exercised.",
+        "What is the final valuation day for this product? This is the date set for the final assessment of the product's value before its maturity.",
+        "Is there a cap on the product's return mentioned in the document? If so, what is it? The cap is the maximum limit on the return that the product can generate.",
+    ]
+    # strike, final valuation, cap
+
+    # ['completed', 'completed', 'completed', 'completed', 'in_progress', 'completed', 'in_progress', 'completed', 'in_progress', 'completed']
+
+
+    hard = turn_path_to_json(file_name, questions)
     client = OpenAI()
     path =  file_name
     loader = PyPDFLoader(path)
@@ -196,34 +211,31 @@ def extract_data(file_name : str, gpt4: bool = False) -> dict:
                 "content": "The structured product schema is defined as follows:" + Beta.schema_json(indent=2)
             },
             {
-                "role": "system",
-                "content": Beta.schema_json(indent=2)
-            },
-            {
                 "role": "user",
                 "content": "Here is the document with the necessary data:"
             },
             {
-                "role": "system",
+                "role": "user",
                 "content": raw
             },
             {
                 "role": "user",
-                "content": "Can you process this information and provide the data in a JSON format according to the schema? Remember, accuracy and detail are critical in this task."
-            },
-            {
-                "role": "system",
-                "content": "Analyzing the document and extracting data. I will ensure the output is accurate and aligns with the given schema, presented in a well-structured JSON format. This may take a few minutes, think step by step, and first creafully read the document, so you can justify why the data you extract is accurate. Take a deep breath and think step by step talking about where you are finding your data."
+                "content": "Please extract the data from the document"
             }
         ],
     )
     # get the status of the completion
     print(completion)
+    # combine the data
+    combined = {}
 
-    # save json to file
     ct = completion.choices[0].message.content
     parsed = format_response_to_json(ct, gpt4=gpt4)
-    print(parsed)
-    return parsed
 
-#
+    for key in parsed:
+        combined[key] = parsed[key]
+
+    for key in hard:
+        combined[key] = hard[key]
+
+    return combined
