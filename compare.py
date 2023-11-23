@@ -28,9 +28,11 @@ def read_excel_as_csv(excel_path, columns_to_ignore):
 
 
 def main():
-    csv_file_path = './testingnew.csv'
+    csv_file_path = './testingassistMIXv4.csv'
     excel_file_path = './ground_truth_0611_U.xlsx'
     columns_to_ignore = ['Issuer', 'Underlying(s)', "File name"]
+
+    num_rows = 3
 
     csv_content = read_csv(csv_file_path, columns_to_ignore)
     converted_excel_content = read_excel_as_csv(excel_file_path, columns_to_ignore)
@@ -50,8 +52,15 @@ def main():
                 continue
 
             # if excel is a float make int and csv make int
-            if isinstance(excel_column[i], float) and isinstance(csv_column[i], int):
-                excel_column[i] = int(excel_column[i])
+            if column == "Barrier" or column == "Cap":
+                # if both are not numbers
+                if csv_column[i] == "nan" and excel_column[i] == "nan":
+                    accuracy += 1
+                    continue
+
+                # make both floats
+                csv_column[i] = float(csv_column[i])
+                excel_column[i] = float(excel_column[i])
                 if csv_column[i] == excel_column[i]:
                     accuracy += 1
                     continue
@@ -59,6 +68,8 @@ def main():
 
             # if pd in excel is a list
             if "[" in str(excel_column[i]):
+                if csv_column[i] == "Nan":
+                    continue
                 # convert to list
                 import json
                 excel_column[i] = json.loads(excel_column[i])
