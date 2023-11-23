@@ -52,6 +52,8 @@ def betas_to_csv(items: list, file_name : str) -> None:
     beta_field_order = beta_field_to_csv.keys()
     # create a dataframe
     df = pd.DataFrame(items, columns=beta_field_order)
+    # rename to dict vals
+    df.rename(columns=beta_field_to_csv, inplace=True)
     # save it to a csv file
     df.to_csv(file_name, index=False)
 
